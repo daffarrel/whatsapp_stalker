@@ -27,7 +27,7 @@ jQuery(document).ready(function($){
 		tick();
 	});
 
-	$("body").on("mouseenter","._2wP_Y",function(e){
+	$("body").on("mouseenter","._3NWy8",function(e){
 		var left=$("#side").offset().left + $("#side").outerWidth(),
 			top=$(this).offset().top + $(this).outerHeight()/2,
 			contact_name=$(this).find("._1wjpf").first().text();
@@ -45,7 +45,7 @@ jQuery(document).ready(function($){
 		clearTimeout(stalk_btn_timeout);
 	});
 
-	$("body").on("mouseleave","._2wP_Y",function(e){
+	$("body").on("mouseleave","._3NWy8",function(e){
 		clearTimeout(stalk_btn_timeout);
 		stalk_btn_timeout=setTimeout(function(){
 			hide_stalk_contact_btn();
@@ -85,7 +85,7 @@ function init(){
 	trigger_btn.appendChild(document.createTextNode("Start Stalking!"));
 	trigger_btn.classList.add("w_stalk_trigger_btn");
 	trigger_btn.setAttribute('data-started',0);
-	$("._2umId").append(trigger_btn);
+	$("._2rZZg").append(trigger_btn);
 	
 	//add a 'Stalk this contact button'
 	var el=$("<div class='w_stalk_contact'>Stalk this person!</div>");
@@ -127,29 +127,41 @@ function tick(){
 //jquery events won't work
 //need to use to Native JS events
 function open_contact(contact_name,callback){
-	$('.jN-F5').focus();
+	$('._2zCfw').focus();
 	window.InputEvent = window.Event || window.InputEvent;
 	var event = new InputEvent('input', {bubbles: true});
-	var textbox = $('.jN-F5')[0];
-	textbox.value = contact_name;
-	textbox.dispatchEvent(event);
+	var textbox = $('._2zCfw')[0];
+	
+	if(textbox){
+		textbox.value = contact_name;
+		textbox.dispatchEvent(event);
+	}
 	find_contact_and_click_it(contact_name,callback);
 }
 
-function find_contact_and_click_it(contact_name,callback){
-	var contact_span=$("._2wP_Y span[dir='auto']._1wjpf[title='"+contact_name+"']");
+function find_contact_and_click_it(contact_name,callback,counter){
+	if(counter === undefined)
+		counter=0;
+
+	//counter helps us ignore the infinite failure condition if a contact isn't found
+	if(counter>5){
+		callback();
+		return;
+	}
+
+	var contact_span=$("span[dir='auto'][title='"+contact_name+"']");
 	if(contact_span.length){
 		var mouse_evt= document.createEvent('MouseEvents');
 		mouse_evt.initEvent('mousedown', true, true);
 		// console.log(contact_span,contact_span.parents("._2EXPL"),contact_span.parents("._2EXPL")[0]);
-		contact_span.parents("._2EXPL")[0].dispatchEvent(mouse_evt);
+		contact_span.parents("._3NWy8")[0].dispatchEvent(mouse_evt);
 		setTimeout(function(){
 			callback();
 		},200);
 	}
 	else{
 		setTimeout(function(){
-			find_contact_and_click_it(contact_name,callback);
+			find_contact_and_click_it(contact_name,callback,counter+1);
 		},500);
 	}
 }
@@ -157,7 +169,7 @@ function find_contact_and_click_it(contact_name,callback){
 function check_online(callback){
 
 	//if the status has not been loaded yet, please wait for it by calling this function again in 500 ms
-	if($("#main").find(".O90ur[title='click here for contact info']").length){
+	if($("#main").find("._315-i[title='click here for contact info']").length){
 		setTimeout(function(){
 			check_online(callback);
 		},200);
@@ -166,8 +178,8 @@ function check_online(callback){
 		//We should wait for sometime here just so that if this status needs to be refreshed,
 		//it gets refreshed by whatsapp
 		setTimeout(function(){
-			var online_span=$("#main").find(".O90ur[title='online']").length,
-				typing_span=$("#main").find(".O90ur[title='typing…']").length;
+			var online_span=$("#main").find("._315-i[title='online']").length,
+				typing_span=$("#main").find("._315-i[title='typing…']").length;
 			callback(online_span || typing_span);
 		},status_wait_time);
 	}
