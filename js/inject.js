@@ -1,4 +1,11 @@
-var profiles=[],profiles_status=[],current_stalk_list=[],tick_timeout,stalk_btn_timeout,
+var profiles=[],
+	profiles_status=[],
+	current_stalk_list=[],
+	initBtnParent="._2umId",
+	contactSelector="._2EXPL",
+	searchContactSelector="._2S1VP",
+	tick_timeout,
+	stalk_btn_timeout,
 	status_wait_time=500;	//the timeout in ms used in check_online()
 jQuery(document).ready(function($){
 	loop();
@@ -85,7 +92,7 @@ function init(){
 	trigger_btn.appendChild(document.createTextNode("Start Stalking!"));
 	trigger_btn.classList.add("w_stalk_trigger_btn");
 	trigger_btn.setAttribute('data-started',0);
-	$("._2rZZg").append(trigger_btn);
+	$(initBtnParent).append(trigger_btn).css("position","relative");
 	
 	//add a 'Stalk this contact button'
 	var el=$("<div class='w_stalk_contact'>Stalk this person!</div>");
@@ -127,10 +134,10 @@ function tick(){
 //jquery events won't work
 //need to use to Native JS events
 function open_contact(contact_name,callback){
-	$('._2zCfw').focus();
+	$(searchContactSelector).focus();
 	window.InputEvent = window.Event || window.InputEvent;
 	var event = new InputEvent('input', {bubbles: true});
-	var textbox = $('._2zCfw')[0];
+	var textbox = $(searchContactSelector)[0];
 	
 	if(textbox){
 		textbox.value = contact_name;
@@ -154,7 +161,7 @@ function find_contact_and_click_it(contact_name,callback,counter){
 		var mouse_evt= document.createEvent('MouseEvents');
 		mouse_evt.initEvent('mousedown', true, true);
 		// console.log(contact_span,contact_span.parents("._2EXPL"),contact_span.parents("._2EXPL")[0]);
-		contact_span.parents("._3NWy8")[0].dispatchEvent(mouse_evt);
+		contact_span.parents(contactSelector)[0].dispatchEvent(mouse_evt);
 		setTimeout(function(){
 			callback();
 		},200);
