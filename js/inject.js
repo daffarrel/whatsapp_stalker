@@ -1,4 +1,217 @@
-var profiles=[],
+class Log{
+	static logs=[];
+
+	static push(str){
+		Log.logs.push(str);
+
+		if(Log.logs.length>0){
+			Log.flush();
+		}
+	}
+
+	static flush(){
+		console.log(Log.logs.join("\n"));
+		Log.logs=[];
+	}
+}
+
+class Stalker{
+	constructor(){
+		this.contacts=[];
+		this.stalking=false;
+	}
+
+	addContact(contactName){
+		if(this.contacts.indexOf(contactName)==-1){
+			let contact=new Contact(contactName);
+			this.contacts.push(contact);
+		}
+	}
+
+	addContacts(contacts){
+		contacts.forEach((contact)=>{
+			this.addContact(contact)
+		});
+	}
+
+	hasContacts(){
+		return this.contacts.length > 0;
+	}
+
+	startStalking(){
+		this.stalking=true;
+		Log.push("Started stalking!");
+
+		// this.contacts.forEach((contact)=>{
+			this.contacts[0].open();
+		// });
+	}
+
+	stop(){
+		this.stalking=false;
+	}
+
+	askContactsToStalk(){
+		let names = prompt("Enter the ,(coma) separated users you would like to monitor(No spaces)");
+
+		if(names===null || !names.length){
+			this.displayError("Invalid users selected!");
+			return;
+		}
+
+		names=names.split(',');
+
+		this.addContacts(names);
+	}
+
+	displayError(str){
+		alert(str);
+	}
+}
+
+class Contact{
+	constructor(name){
+		this.name=name;
+	}
+
+	async open(){
+		Log.push(`Opening ${this.name}`);
+
+		//first search for that contact
+		uiManager.searchForContact(this);
+		//check if contact is in search results, then click it
+		let checkContactPresent = await uiManager.checkContactInSearch(this);
+		if(!checkContactPresent){
+			Log.push(`Contact:${this.name} not present in Contacts list`);
+			return;
+		}
+
+		Log.push(`Contact:${this.name} is present in Contacts list, proceeding!`);
+		
+		await uiManager.clickContact(this);
+		let status = await this.checkOnline();
+		
+		if(status){
+			Log.push(`Contact: ${this.name} seems online!`);
+		}
+		else{
+			Log.push(`Contact: ${this.name} seems offline!`);
+		}
+	}
+
+	async checkOnline(){
+		function checkOnlineUtil(){
+			return new Promise((resolve)=>{
+				//if the status has not been loaded yet, please wait for it by calling this function again in a small interval
+				if($("#main").find("._315-i[title='click here for contact info']").length){
+					setTimeout(async ()=>{
+						resolve(await checkOnlineUtil());
+					},200);
+				}
+				else{
+					//We should wait for sometime here just so that if this status needs to be refreshed,
+					//it gets refreshed by whatsapp
+					setTimeout(()=>{
+						let onlineSpan=$("#main").find("._315-i[title='online']").length,
+							typingSpan=$("#main").find("._315-i[title='typing…']").length;
+						resolve(onlineSpan || typingSpan);
+					},500);
+				}
+			});
+		}
+		return await checkOnlineUtil();
+	}
+}
+
+class UIManager{
+
+	onLoad(){
+		return new Promise((resolve)=>{
+			if($("#side").length){
+				Log.push("loaded");
+				resolve();
+			}
+			else{
+				Log.push('waiting to load');
+				setTimeout(()=>{
+					resolve(this.onLoad());
+				},1000);
+			}
+		});
+	}
+
+	displayStalkerBtn(){
+		//create a button that lets users start the monitoring
+		let triggerBtn=document.createElement("div");
+		triggerBtn.appendChild(document.createTextNode("Start Stalking!"));
+		triggerBtn.classList.add("w_stalk_trigger_btn");
+		triggerBtn.setAttribute('data-started',0);
+		$(initBtnParent).append(triggerBtn).css("position","relative");
+		
+		//add a 'Stalk this contact button'
+		var el=$("<div class='w_stalk_contact'>Stalk this person!</div>");
+		$(".app").append(el);
+	}
+
+	searchForContact(contact){
+		$(searchContactSelector).focus();
+		window.InputEvent = window.Event || window.InputEvent;
+		var event = new InputEvent('input', {bubbles: true});
+		var textbox = $(searchContactSelector)[0];
+		
+		if(textbox){
+			textbox.innerText = contact.name;
+			textbox.dispatchEvent(event);
+		}
+	}
+
+	//checks for a contact in the search results maxCounter Times with a small delay
+	//if the contact is found before, it simply returns
+	//if not found once, it recursively calls itself for a max num of maxCounter times.
+	checkContactInSearch(contact){
+		Log.push(`Checking ${contact.name} in search`);
+		function checkContactUtil(currentCounter=0){
+
+			return new Promise((resolve,reject)=>{
+				let maxCounter=5;
+				if(currentCounter>maxCounter){
+					console.log(`Couldn't find ${contact.name} in the search results`);
+					resolve(false);
+				}
+
+				let contactSpan=$("span[dir='auto'][title='"+contact.name+"']");
+
+				if(contactSpan.length){
+					resolve(true);
+				}
+				else{
+					setTimeout(async ()=>{
+						resolve(await checkContactUtil(currentCounter+1));
+					},500);
+				}
+			})
+		}
+		return checkContactUtil();
+		
+	}
+	clickContact(contact){
+		return new Promise((resolve)=>{
+			let contactSpan=$("span[dir='auto'][title='"+contact.name+"']");
+			let mouseEvt= document.createEvent('MouseEvents');
+			mouseEvt.initEvent('mousedown', true, true);
+			contactSpan.parents(contactSelector)[0].dispatchEvent(mouseEvt);
+			setTimeout(()=>{
+				resolve();
+			},200);
+		});
+	}
+}
+
+
+
+var stalker=new Stalker(),
+	uiManager=new UIManager(),
+	profiles=[],
 	profiles_status=[],
 	current_stalk_list=[],
 	initBtnParent="._2umId",
@@ -7,31 +220,17 @@ var profiles=[],
 	tick_timeout,
 	stalk_btn_timeout,
 	status_wait_time=500;	//the timeout in ms used in check_online()
-jQuery(document).ready(function($){
-	loop();
+jQuery(document).ready(async function($){
+	await uiManager.onLoad();
+	await uiManager.displayStalkerBtn();
 
 	$("body").on("click",".w_stalk_trigger_btn",function(e){
-		//If the stalking was already started
-		if($(this).attr("data-started")=="1"){
-			$(this).attr("data-started","0");
-			$(this).text("Start Stalking!");
-			clearTimeout(tick_timeout);
-			return;
-		}
-
-		var users=prompt("Enter the ,(coma) separated users you would like to monitor(No spaces)",current_stalk_list.join(","));
-		if(!users || !users.length){
-			alert("Invalid users selected!");
-			return;
-		}
-		//stalking is about to start
-		$(this).attr("data-started","1");
-		$(this).text("Stop Stalking!");
-
-		current_stalk_list=[];
-		window.profiles=users.split(",");
-		window.cur_profile=profiles[0];
-		tick();
+		stalker.askContactsToStalk();
+		
+		setTimeout(()=>{
+			if(stalker.hasContacts())
+				stalker.startStalking();
+		},1000)
 	});
 
 	$("body").on("mouseenter","._3NWy8",function(e){
@@ -74,31 +273,6 @@ jQuery(document).ready(function($){
 	});
 });
 
-//keep looping until the loading screen is over
-function loop(){
-	if($("#side").length){
-		init();
-		console.log("init");
-	}
-	else{
-		setTimeout(loop,1000);
-		console.log("looping");
-	}
-}
-
-function init(){
-	//create a button that lets users start the monitoring
-	var trigger_btn=document.createElement("div");
-	trigger_btn.appendChild(document.createTextNode("Start Stalking!"));
-	trigger_btn.classList.add("w_stalk_trigger_btn");
-	trigger_btn.setAttribute('data-started',0);
-	$(initBtnParent).append(trigger_btn).css("position","relative");
-	
-	//add a 'Stalk this contact button'
-	var el=$("<div class='w_stalk_contact'>Stalk this person!</div>");
-	$(".app").append(el);
-}
-
 //tick function
 function tick(){
 	open_contact(window.cur_profile,function(){
@@ -130,71 +304,9 @@ function tick(){
 	});
 }
 
-
-//jquery events won't work
-//need to use to Native JS events
-function open_contact(contact_name,callback){
-	$(searchContactSelector).focus();
-	window.InputEvent = window.Event || window.InputEvent;
-	var event = new InputEvent('input', {bubbles: true});
-	var textbox = $(searchContactSelector)[0];
-	
-	if(textbox){
-		textbox.value = contact_name;
-		textbox.dispatchEvent(event);
-	}
-	find_contact_and_click_it(contact_name,callback);
-}
-
-function find_contact_and_click_it(contact_name,callback,counter){
-	if(counter === undefined)
-		counter=0;
-
-	//counter helps us ignore the infinite failure condition if a contact isn't found
-	if(counter>5){
-		callback();
-		return;
-	}
-
-	var contact_span=$("span[dir='auto'][title='"+contact_name+"']");
-	if(contact_span.length){
-		var mouse_evt= document.createEvent('MouseEvents');
-		mouse_evt.initEvent('mousedown', true, true);
-		// console.log(contact_span,contact_span.parents("._2EXPL"),contact_span.parents("._2EXPL")[0]);
-		contact_span.parents(contactSelector)[0].dispatchEvent(mouse_evt);
-		setTimeout(function(){
-			callback();
-		},200);
-	}
-	else{
-		setTimeout(function(){
-			find_contact_and_click_it(contact_name,callback,counter+1);
-		},500);
-	}
-}
-
-function check_online(callback){
-
-	//if the status has not been loaded yet, please wait for it by calling this function again in 500 ms
-	if($("#main").find("._315-i[title='click here for contact info']").length){
-		setTimeout(function(){
-			check_online(callback);
-		},200);
-	}
-	else{
-		//We should wait for sometime here just so that if this status needs to be refreshed,
-		//it gets refreshed by whatsapp
-		setTimeout(function(){
-			var online_span=$("#main").find("._315-i[title='online']").length,
-				typing_span=$("#main").find("._315-i[title='typing…']").length;
-			callback(online_span || typing_span);
-		},status_wait_time);
-	}
-}
-
-function hide_stalk_contact_btn(){
-	$(".w_stalk_contact").css({
-		opacity:0,
-		pointerEvents:'none'
-	});
-}
+// function hide_stalk_contact_btn(){
+// 	$(".w_stalk_contact").css({
+// 		opacity:0,
+// 		pointerEvents:'none'
+// 	});
+// }
