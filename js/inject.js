@@ -1,7 +1,7 @@
 var profiles=[],
 	profiles_status=[],
 	current_stalk_list=[],
-	initBtnParent="._2umId",
+	initBtnParent="._1MXsz",
 	contactSelector="._2EXPL",
 	searchContactSelector="._2S1VP",
 	tick_timeout,
